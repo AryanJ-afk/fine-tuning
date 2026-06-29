@@ -22,7 +22,7 @@ def main():
     # --- Data: the three functions you built, chained together ---
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    raw = load_pubmed_corpus(n=50000)                      # raw abstracts
+    raw = load_pubmed_corpus(n=2000)                      # raw abstracts
     tokenized = raw.map(
         lambda x: tokenize_corpus(x, tokenizer),
         batched=True,

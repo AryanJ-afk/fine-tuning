@@ -1,5 +1,5 @@
 datasets
 zstandard
 transformers
-troch
+torch
 accelerate>=1.1.0
