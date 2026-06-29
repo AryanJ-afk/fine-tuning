@@ -22,7 +22,7 @@ def main():
     # --- Data: the three functions you built, chained together ---
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    raw = load_pubmed_corpus(n=2000)                      # raw abstracts
+    raw = load_pubmed_corpus(n=10000)                      # raw abstracts
     tokenized = raw.map(
         lambda x: tokenize_corpus(x, tokenizer),
         batched=True,
@@ -32,27 +32,30 @@ def main():
     print(blocks)                                            # sanity-check the block count
 
     # --- Model ---
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
 
     # --- Collator: batches the blocks; mlm=False = causal LM (next-token) ---
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     # --- Training config ---
     args = TrainingArguments(
-        output_dir="./stage1_out",
-        num_train_epochs=1,
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=8,        # effective batch = 32
-        learning_rate=2e-5,
-        warmup_ratio=0.03,
-        weight_decay=0.01,
-        lr_scheduler_type="cosine",
-        logging_steps=10,
-        save_strategy="epoch",
-        fp16=False,                           # MPS doesn't use fp16/bf16 flags; leave both off
-        bf16=False,
-        report_to="none",                     # no W&B yet
-    )
+    output_dir="./stage1_out",
+    num_train_epochs=1,
+    per_device_train_batch_size=1,          # was 4 — the big lever
+    gradient_accumulation_steps=32,         # keep effective batch = 32
+    gradient_checkpointing=True,            # recompute activations instead of storing them
+    gradient_checkpointing_kwargs={"use_reentrant": False},  # avoids a warning in newer transformers
+    learning_rate=2e-5,
+    warmup_steps=5,
+    weight_decay=0.01,
+    lr_scheduler_type="cosine",
+    logging_steps=10,
+    save_strategy="steps",
+    save_steps=100,
+    fp16=True,                              # ← confirm this is actually True (halves activation memory)
+    dataloader_pin_memory=False,
+    report_to="none",
+)
 
     trainer = Trainer(
         model=model,
