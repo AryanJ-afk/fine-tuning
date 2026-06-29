@@ -1,0 +1,5 @@
+datasets
+zstandard
+transformers
+troch
+accelerate>=1.1.0

@@ -1,0 +1,1 @@
+MedMCQA accuracy before finetuning (500 questions): 0.278
