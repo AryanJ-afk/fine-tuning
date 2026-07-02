@@ -10,9 +10,9 @@ find most probable" -- no instruction-following needed.
 
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from tqdm import tqdm
-
+from peft import PeftModel
 
 def get_device():
     if torch.cuda.is_available():
@@ -73,16 +73,27 @@ def evaluate(model, tokenizer, dataset, device):
             correct += 1
     return correct / len(dataset)
 
+def load_adapter_model(base_name, adapter_path, device):
+    """Load a base model in 4-bit, then attach a trained LoRA/QLoRA adapter on top."""
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        base_name,
+        quantization_config=bnb_config,
+        device_map="auto",
+    )
+    model = PeftModel.from_pretrained(base, adapter_path)   # <-- attaches the adapter
+    return model
+
 
 if __name__ == "__main__":
     device = get_device()
-    print(f"Device: {device}")
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-4B-Base")
+    model = load_adapter_model("Qwen/Qwen3-4B-Base", "/content/drive/MyDrive/stage2_model", device)
 
-    model_name = "Qwen/Qwen3-0.6B-Base"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
-
-    # Start small to confirm it runs; raise n to ~500-1000 for the real baseline.
-    data = load_medmcqa(n=500)
-    acc = evaluate(model, tokenizer, data, device)
-    print(f"MedMCQA accuracy ({len(data)} questions): {acc:.3f}")
+    acc = evaluate(model, tokenizer, load_medmcqa(n=500), device)
+    print(f"QLoRA MedMCQA accuracy: {acc:.3f}")

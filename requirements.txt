@@ -3,3 +3,5 @@ zstandard
 transformers
 torch
 accelerate>=1.1.0
+trl
+bitsandbytes>=0.46.1
